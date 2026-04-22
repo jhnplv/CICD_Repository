@@ -1,0 +1,45 @@
+name: UiPath Deploy Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+
+    env:
+      UIPATH_CLIENT_ID: ${{ secrets.ORCH_CLIENT_ID }}
+      UIPATH_CLIENT_SECRET: ${{ secrets.ORCH_USER_KEY }}
+      UIPATH_ORGANIZATION: ${{ vars.ORCH_ACCOUNT }}
+      UIPATH_TENANT: ${{ vars.ORCH_TENANT }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install UiPath CLI
+        shell: powershell
+        run: |
+          Invoke-WebRequest "https://github.com/UiPath/uipathcli/releases/latest/download/uipathcli-windows-amd64.zip" -OutFile "uipathcli.zip"
+          Expand-Archive -Force -Path "uipathcli.zip" -DestinationPath "."
+      
+      - name: Update Version
+        shell: powershell
+        run: |
+          $newVersion = "1.0.${{ github.run_number }}"
+          $json = Get-Content project.json | ConvertFrom-Json
+          $json.projectVersion = $newVersion
+          $json | ConvertTo-Json -Depth 10 | Set-Content project.json
+      
+      - name: Build Package
+        shell: powershell
+        run: |
+          ./uipath.exe studio package pack .
+
+      - name: Publish Package
+        shell: powershell
+        run: |
+          $package = Get-ChildItem -Filter "*.nupkg" | Select-Object -First 1
+          $newVersion = "1.0.${{ github.run_number }}"
+          ./uipath.exe studio package publish --file $package.FullName --folder "${{ vars.FOLDER_NAME }}"
