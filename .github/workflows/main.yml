@@ -1,4 +1,4 @@
-name: UiPath Deploy Pipeline
+name: UiPath Deploy Pipeline2
 
 on:
   push:
